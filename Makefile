@@ -18,12 +18,6 @@ test:
 get:
 	go get
 
-clean:
-	@echo Removing kbot binary
-	rm -rf kbot
-	@echo Removing docker image
-	docker rmi ${REGISTRY}/${APP}:${VERSION}-${TARGETARCH} || true
-
 pre-build: format get
 
 build: pre-build
@@ -77,6 +71,12 @@ endif
 ifeq ($(DETECTED_OS),)
 	$(error No supported OS detected)
 endif
+
+clean:
+	@echo Removing kbot binary
+	rm -rf kbot
+	@echo Removing docker image
+	docker rmi ${REGISTRY}/${APP}:${VERSION}-${DETECTED_ARCH} || true
 
 image: clean
 	docker build . -t ${REGISTRY}/${APP}:${VERSION}-${DETECTED_ARCH} \
