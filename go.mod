@@ -1,6 +1,6 @@
 module github.com/a-yerzhyk/kbot
 
-go 1.24.5
+go 1.24
 
 require (
 	github.com/spf13/cobra v1.9.1
