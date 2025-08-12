@@ -3,6 +3,7 @@ REGISTRY=ghcr.io/a-yerzhyk
 VERSION=$(shell git describe --tags --abbrev=0)-$(shell git rev-parse --short HEAD)
 TARGETOS?=linux
 TARGETARCH?=amd64
+DETECTED_ARCH=$(shell dpkg --print-architecture)
 
 .PHONY: format lint test get clean pre-build build image push linux windows macos
 
@@ -24,17 +25,6 @@ build: pre-build
 	@echo Building for ${TARGETOS}/${TARGETARCH}
 	CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -v -o kbot -ldflags "-X="github.com/a-yerzhyk/kbot/cmd.appVersion=${VERSION}
 
-# Detect current architecture
-CURRENT_ARCH=$(shell uname -m)
-ifeq ($(CURRENT_ARCH),x86_64)
-    DETECTED_ARCH=amd64
-else ifeq ($(CURRENT_ARCH),aarch64)
-    DETECTED_ARCH=arm64
-else ifeq ($(CURRENT_ARCH),armv7l)
-    DETECTED_ARCH=arm
-else
-    DETECTED_ARCH=
-endif
 
 ifeq ($(DETECTED_ARCH),)
 	$(error No supported architecture detected)
@@ -44,33 +34,15 @@ linux: pre-build
 	@echo Building for linux/${DETECTED_ARCH}
 	CGO_ENABLED=0 GOOS=linux GOARCH=${DETECTED_ARCH} go build -v -o kbot -ldflags "-X=github.com/a-yerzhyk/kbot/cmd.appVersion=${VERSION}"
 
+# For use in WSL environment
 windows: pre-build
 	@echo Building for windows/${DETECTED_ARCH}
 	CGO_ENABLED=0 GOOS=windows GOARCH=${DETECTED_ARCH} go build -v -o kbot -ldflags "-X=github.com/a-yerzhyk/kbot/cmd.appVersion=${VERSION}"
 
+# For use on m1 mac and newer arm64 devices
 macos: pre-build
-	@echo Building for darwin/${DETECTED_ARCH}
-	CGO_ENABLED=0 GOOS=darwin GOARCH=${DETECTED_ARCH} go build -v -o kbot -ldflags "-X=github.com/a-yerzhyk/kbot/cmd.appVersion=${VERSION}"
-
-# Detect current OS
-CURRENT_OS=$(shell uname -s)
-ifeq ($(CURRENT_OS),Linux)
-    DETECTED_OS=linux
-else ifeq ($(CURRENT_OS),Darwin)
-    DETECTED_OS=darwin
-else ifeq ($(CURRENT_OS),MINGW*)
-    DETECTED_OS=windows
-else ifeq ($(CURRENT_OS),MSYS*)
-    DETECTED_OS=windows
-else ifeq ($(CURRENT_OS),CYGWIN*)
-    DETECTED_OS=windows
-else
-    DETECTED_OS=
-endif
-
-ifeq ($(DETECTED_OS),)
-	$(error No supported OS detected)
-endif
+	@echo Building for darwin/arm64
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -v -o kbot -ldflags "-X=github.com/a-yerzhyk/kbot/cmd.appVersion=${VERSION}"
 
 clean:
 	@echo Removing kbot binary
@@ -80,7 +52,6 @@ clean:
 
 image: clean
 	docker build . -t ${REGISTRY}/${APP}:${VERSION}-${DETECTED_ARCH} \
-		--build-arg TARGETOS=${DETECTED_OS} \
 		--build-arg TARGETARCH=${DETECTED_ARCH}
 
 push:
