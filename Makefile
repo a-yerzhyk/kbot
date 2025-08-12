@@ -3,7 +3,21 @@ REGISTRY=ghcr.io/a-yerzhyk
 VERSION=$(shell git describe --tags --abbrev=0)-$(shell git rev-parse --short HEAD)
 TARGETOS?=linux
 TARGETARCH?=amd64
-DETECTED_ARCH=$(shell dpkg --print-architecture)
+
+CURRENT_ARCH=$(shell uname -m)
+ifeq ($(CURRENT_ARCH),x86_64)
+    DETECTED_ARCH=amd64
+else ifeq ($(CURRENT_ARCH),aarch64)
+    DETECTED_ARCH=arm64
+else ifeq ($(CURRENT_ARCH),armv7l)
+    DETECTED_ARCH=arm
+else
+    DETECTED_ARCH=
+endif
+
+ifeq ($(DETECTED_ARCH),)
+	$(error No supported architecture detected)
+endif
 
 .PHONY: format lint test get clean pre-build build image push linux windows macos
 
@@ -24,11 +38,6 @@ pre-build: format get
 build: pre-build
 	@echo Building for ${TARGETOS}/${TARGETARCH}
 	CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -v -o kbot -ldflags "-X="github.com/a-yerzhyk/kbot/cmd.appVersion=${VERSION}
-
-
-ifeq ($(DETECTED_ARCH),)
-	$(error No supported architecture detected)
-endif
 
 linux: pre-build
 	@echo Building for linux/${DETECTED_ARCH}
@@ -51,6 +60,7 @@ clean:
 	docker rmi ${REGISTRY}/${APP}:${VERSION}-${DETECTED_ARCH} || true
 
 image: clean
+	@echo Building docker image for ${DETECTED_ARCH}
 	docker build . -t ${REGISTRY}/${APP}:${VERSION}-${DETECTED_ARCH} \
 		--build-arg TARGETARCH=${DETECTED_ARCH}
 
